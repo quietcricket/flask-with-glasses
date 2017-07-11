@@ -32,8 +32,7 @@ default_config = {
         'leading_zero': 'leading_zero',
         'paragraphs': 'add_p',
         'no_breaks': 'remove_linebreaks',
-        'slug': 'gen_slug',
-        'T': 'translate'
+        'slug': 'gen_slug'
     },
     #: Custom Jinja global functions
     'EA_JINJA_FUNCTIONS': {'next_year': 'next_year',
@@ -45,21 +44,21 @@ default_config = {
     'EA_JINJA_CONTEXT': {'highlight': 'highlight_link'},
 
     #: Project folder structure
-    'EA_FOLDER_STRUCTURE': ['static/%{css_folder}s/', 'static/%{scss_folder}s/styles.scss',
-                            'static/%{js_folder}s/', 'static/%{js_src_folder}s/Main.js',
-                            'static/images/', 'static/fonts/', '%{templates_folder}s/'],
+    'EA_FOLDER_STRUCTURE': ['static/%(css_folder)s/', 'static/%(scss_folder)s/styles.scss',
+                            'static/%(js_folder)s/', 'static/%(js_src_folder)s/Main.js',
+                            'static/images/', 'static/fonts/', '%(templates_folder)s/'],
     'EA_JS_LIBS': ['jquery/dist/jquery.min.js'],
     'EA_SCSS_LIBS': ['bootstrap/scss'],
 
     'EA_FILTER_JSMIN': False,
     'EA_FILTER_AUTOPREFIXER': False,
     'EA_FILTER_BABEL': False,
-    'EA_BABEL_PRESETS': '/usr/lib/node_modules/babel-preset-es2015',
+    'EA_BABEL_PRESETS': '/usr/local/lib/node_modules/babel-preset-es2015',
 
     #: Watch files for livereload
-    'EA_LIVERELOAD_WATCH_FILES': ['static/%{scss_folder}s/*.scss',
-                                  'static/%{js_src_folder}s/*.js',
-                                  '%{templates_folder}s/*.html']
+    'EA_LIVERELOAD_WATCH_FILES': ['static/%(scss_folder)s/*.scss',
+                                  'static/%(js_src_folder)s/*.js',
+                                  '%(templates_folder)s/*.html']
 }
 
 
@@ -113,7 +112,7 @@ class EnhancedApp(object):
 
     def create_folder_structure(self):
         for f in self._config['folder_structure']:
-            _path = self._config['prefix'] + f % self._config
+            _path = (self._config['prefix'] + f) % self._config
             if os.path.exists(_path):
                 break
             self._create_path(_path)
@@ -157,10 +156,10 @@ class EnhancedApp(object):
         bower_path = abs_path(self._config['bower_folder'])
 
         js_filters = []
-        if self._config['use_jsmin']:
+        if self._config['filter_jsmin']:
             js_filters = ['jsmin']
 
-        if self._config['use_babel']:
+        if self._config['filter_babel']:
             js_filters.append(get_filter('babel', presets=self._config['babel_presets']))
 
         libs = [os.path.join(bower_path, f) for f in self._config['js_libs']]
@@ -193,7 +192,7 @@ class EnhancedApp(object):
 
         css_filters = [sass_compiler]
 
-        if self._config['use_autoprefixer']:
+        if self._config['filter_autoprefixer']:
             css_filters.append(get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
 
         b = Bundle(os.path.join(scss_path, 'styles.scss'),
