@@ -1,0 +1,63 @@
+{%- macro include_assets(asset_name,url) -%}
+    {%- if debug_mode -%}
+        {%- assets asset_name -%}
+            {%- if url.lower()[-3:]=='css' -%}
+                <link rel='stylesheet' href="{{ url }}" type='text/css' media='all'/>
+            {%- else -%}
+                <script type="text/javascript" src="{{ url }}"></script>
+            {%- endif -%}
+        {%- endassets -%}
+    {%- else -%}
+        {%- if url[-3:]=='css' -%}
+            <link rel='stylesheet' href="{{ url }}" type='text/css' media='all'/>
+        {%- else -%}
+            <script type="text/javascript" src="{{ url }}"></script>
+        {%- endif -%}
+    {%- endif -%}
+{%- endmacro -%}
+
+
+<!doctype html>
+<html lang="en-US">
+    <head>
+        {% block head %}
+            <title>{% block title %}{% endblock title %}</title>
+            {% block meta %}
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+            {% endblock meta %}
+            {% block favicon %}
+            {% endblock favicon %}
+            {% block styles %}
+                {{ include_assets('styles-css',url_for('static',filename='css/styles.css')) }}
+            {% endblock styles %}
+        {% endblock head %}
+    </head>
+
+    {% block body %}
+        <body class="{% block body_class %}{% endblock %}">
+            {% block nav %}
+            {% endblock nav %}
+
+            {% block content %}
+            {% endblock content %}
+
+            {% block footer %}
+            {% endblock footer %}
+
+            {% block modals %}
+            {% endblock %}
+
+            {% block ga %}{% endblock ga %}
+
+            {% block default_scripts %}
+                {{ include_assets('libs-js',url_for('static',filename='js/libs.js')) }}
+                {{ include_assets('scripts-js',url_for('static',filename='js/scripts.js')) }}
+            {% endblock default_scripts %}
+
+            {% block scripts %}
+            {% endblock scripts %}
+
+        </body>
+    {% endblock body %}
+</html>
