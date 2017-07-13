@@ -1,2 +1,2 @@
 v0.1.1
-Changed the project URL
+Fixed some errors. The v0.1.0 was not tested.
