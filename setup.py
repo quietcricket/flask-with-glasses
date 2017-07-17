@@ -2,8 +2,8 @@ from setuptools import setup, find_packages
 
 print find_packages()
 setup(
-    name='Flask With Glasses',
-    version='0.1.1',
+    name='flask-with-glasses',
+    version='0.1.4',
     description='Enhanced flask app with livereload and webassets. More suitable for front end development',
     author='Shang Liang',
     author_email='shang@wewearglasses.com',

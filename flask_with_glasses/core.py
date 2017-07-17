@@ -101,6 +101,8 @@ class EnhancedApp(object):
 
         # Create webassets
         self.assets_env = Environment(self.app)
+        self.assets_env.url_expire=True
+        self.assets_env.url='/static'
         self.enhance_assets(self.assets_env)
 
         # Initialize additional jinja stuff
@@ -209,7 +211,7 @@ class EnhancedApp(object):
         server = livereload.Server(self.app)
         for f in self._config['livereload_watch_files']:
             if f.startswith('static') or f.startswith('template'):
-                f = self._config['prefix'] + f
+                f = self._config['prefix'] + f % self._config
             server.watch(abs_path(f))
         self.app.debug = debug
         server.serve(port=port, host='0.0.0.0')

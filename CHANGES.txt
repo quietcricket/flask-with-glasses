@@ -1,2 +1,7 @@
+v0.1.4
+Fixed webassets not refresh when files changed.
+Fixed livereload wrongly configured.
+v0.1.2
+Fixed missing installation file. 
 v0.1.1
 Fixed some errors. The v0.1.0 was not tested.

@@ -2,9 +2,9 @@
     {%- if debug_mode -%}
         {%- assets asset_name -%}
             {%- if url.lower()[-3:]=='css' -%}
-                <link rel='stylesheet' href="{{ url }}" type='text/css' media='all'/>
+                <link rel='stylesheet' href="{{ ASSET_URL }}" type='text/css' media='all'/>
             {%- else -%}
-                <script type="text/javascript" src="{{ url }}"></script>
+                <script type="text/javascript" src="{{ ASSET_URL }}"></script>
             {%- endif -%}
         {%- endassets -%}
     {%- else -%}
