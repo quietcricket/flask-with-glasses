@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 print find_packages()
 setup(
     name='flask-with-glasses',
-    version='0.1.4',
+    version='0.1.5',
     description='Enhanced flask app with livereload and webassets. More suitable for front end development',
     author='Shang Liang',
     author_email='shang@wewearglasses.com',

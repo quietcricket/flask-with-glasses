@@ -210,8 +210,9 @@ class EnhancedApp(object):
         """
         server = livereload.Server(self.app)
         for f in self._config['livereload_watch_files']:
-            if f.startswith('static') or f.startswith('template'):
+            if f.find('%(')>-1:
                 f = self._config['prefix'] + f % self._config
+            print abs_path(f)
             server.watch(abs_path(f))
         self.app.debug = debug
         server.serve(port=port, host='0.0.0.0')

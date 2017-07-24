@@ -1,3 +1,5 @@
+v0.1.5
+Fixed livereload not watching templates folder.
 v0.1.4
 Fixed webassets not refresh when files changed.
 Fixed livereload wrongly configured.
