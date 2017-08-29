@@ -44,9 +44,9 @@ default_config = {
     'EA_JINJA_CONTEXT': {'highlight': 'highlight_link'},
 
     #: Project folder structure
-    'EA_FOLDER_STRUCTURE': ['static/%(css_folder)s/', 'static/%(scss_folder)s/styles.scss',
-                            'static/%(js_folder)s/', 'static/%(js_src_folder)s/Main.js',
-                            'static/images/', 'static/fonts/', '%(templates_folder)s/'],
+    'EA_FOLDER_STRUCTURE': ['%(prefix)sstatic/%(css_folder)s/', '%(prefix)sstatic/%(scss_folder)s/styles.scss',
+                            '%(prefix)sstatic/%(js_folder)s/', '%(prefix)sstatic/%(js_src_folder)s/Main.js',
+                            '%(prefix)sstatic/images/', '%(prefix)sstatic/fonts/', '%(prefix)s%(templates_folder)s/'],
     'EA_JS_LIBS': ['jquery/dist/jquery.min.js'],
     'EA_SCSS_LIBS': ['bootstrap/scss'],
 
@@ -56,9 +56,9 @@ default_config = {
     'EA_BABEL_PRESETS': '/usr/local/lib/node_modules/babel-preset-es2015',
 
     #: Watch files for livereload
-    'EA_LIVERELOAD_WATCH_FILES': ['static/%(scss_folder)s/*.scss',
-                                  'static/%(js_src_folder)s/*.js',
-                                  '%(templates_folder)s/*.html']
+    'EA_LIVERELOAD_WATCH_FILES': ['%(prefix)sstatic/%(scss_folder)s/*.scss',
+                                  '%(prefix)sstatic/%(js_src_folder)s/*.js',
+                                  '%(prefix)s%(templates_folder)s/*.html']
 }
 
 
@@ -73,11 +73,11 @@ class EnhancedApp(object):
     #: webassets environment
     assets_env = None
 
-    _config = None
+    config = None
 
-    is_debug_mode = True
+    is_debug_mode = False
 
-    def __init__(self, app_name='enhanced-flask-app', config_file=None, debug_mode=True, **flask_kwargs):
+    def __init__(self, app_name='enhanced-flask-app', config_file=None, debug_mode=False, **flask_kwargs):
         self.is_debug_mode = debug_mode
         config = Config('.', Flask.default_config)
         if config_file:
@@ -86,24 +86,25 @@ class EnhancedApp(object):
         for k, v in default_config.items():
             config.setdefault(k, v)
 
-        self._config = config.get_namespace('EA_')
+        self.config = config.get_namespace('EA_')
 
         self.create_folder_structure()
 
-        flask_kwargs.setdefault('static_folder', self._config['prefix'] + 'static')
+        flask_kwargs.setdefault('static_folder', self.config['prefix'] + 'static')
         flask_kwargs.setdefault('static_url_path', '/static')
-        flask_kwargs.setdefault('template_folder', self._config['prefix'] + 'templates')
+        flask_kwargs.setdefault('template_folder', self.config['prefix'] + 'templates')
 
         self.app = Flask(app_name, **flask_kwargs)
 
         self.app.config = config
         self.add_error_handlers()
 
-        # Create webassets
-        self.assets_env = Environment(self.app)
-        self.assets_env.url_expire=True
-        self.assets_env.url='/static'
-        self.enhance_assets(self.assets_env)
+        if debug_mode:
+            # Create webassets
+            self.assets_env = Environment(self.app)
+            self.assets_env.url_expire=True
+            self.assets_env.url='/static'
+            self.enhance_assets(self.assets_env)
 
         # Initialize additional jinja stuff
         self.enhance_jinja(self.app.jinja_env)
@@ -113,8 +114,8 @@ class EnhancedApp(object):
         self.app.register_blueprint(bp)
 
     def create_folder_structure(self):
-        for f in self._config['folder_structure']:
-            _path = (self._config['prefix'] + f) % self._config
+        for f in self.config['folder_structure']:
+            _path = f % self.config
             if os.path.exists(_path):
                 break
             self._create_path(_path)
@@ -130,17 +131,17 @@ class EnhancedApp(object):
         env.add_extension('jinja2_ext_required.RequiredVariablesExtension')
 
         # Add additional jinja filters
-        for k, v in self._config['jinja_filters'].items():
+        for k, v in self.config['jinja_filters'].items():
             env.filters[k] = getattr(utils, v)
 
-        for k, v in self._config['jinja_functions'].items():
+        for k, v in self.config['jinja_functions'].items():
             env.globals[k] = getattr(utils, v)
 
         #: Initialize jinja context
         @self.app.context_processor
         def gen_jinja_context():
             obj = {}
-            for _k, _v in self._config['jinja_context'].items():
+            for _k, _v in self.config['jinja_context'].items():
                 obj[_k] = getattr(utils, _v)
             return obj
 
@@ -151,25 +152,23 @@ class EnhancedApp(object):
         :return:
         """
 
-        scss_path = abs_path(self._to_static_path(self._config['scss_folder']))
-        css_path = abs_path(self._to_static_path(self._config['css_folder']))
-        js_src_path = abs_path(self._to_static_path(self._config['js_src_folder']))
-        js_path = abs_path(self._to_static_path(self._config['js_folder']))
-        bower_path = abs_path(self._config['bower_folder'])
+        scss_path = abs_path(self._to_static_path(self.config['scss_folder']))
+        css_path = abs_path(self._to_static_path(self.config['css_folder']))
+        js_src_path = abs_path(self._to_static_path(self.config['js_src_folder']))
+        js_path = abs_path(self._to_static_path(self.config['js_folder']))
+        bower_path = abs_path(self.config['bower_folder'])
 
         js_filters = []
-        if self._config['filter_jsmin']:
+        if self.config['filter_jsmin']:
             js_filters = ['jsmin']
 
-        if self._config['filter_babel']:
-            js_filters.append(get_filter('babel', presets=self._config['babel_presets']))
+        if self.config['filter_babel']:
+            js_filters.append(get_filter('babel', presets=self.config['babel_presets']))
 
-        libs = [os.path.join(bower_path, f) for f in self._config['js_libs']]
+        libs = [os.path.join(bower_path, f) for f in self.config['js_libs']]
         #: Project specific libs added in project config
         if libs:
             output_file = os.path.join(js_path, 'libs.js')
-            if os.path.exists(output_file) and self.is_debug_mode:
-                os.remove(output_file)
             b = Bundle(libs, output=output_file, filters=js_filters)
             env.register('libs-js', b)
 
@@ -180,21 +179,19 @@ class EnhancedApp(object):
                 scripts.append(os.path.join(js_src_path, f))
         if scripts:
             output_file = os.path.join(js_path, 'scripts.js')
-            if os.path.exists(output_file) and self.is_debug_mode:
-                os.remove(output_file)
             b = Bundle(scripts, output=output_file, filters=js_filters)
+            
             env.register('scripts-js', b)
 
         include_scss = [scss_path]
         depends_scss = [os.path.join(scss_path, '*.scss')]
-        for f in self._config['scss_libs']:
+        for f in self.config['scss_libs']:
             include_scss.append(os.path.join(bower_path, f))
             depends_scss.append(os.path.join(bower_path, f, '*.scss'))
         sass_compiler = get_filter('libsass', includes=include_scss)
 
         css_filters = [sass_compiler]
-
-        if self._config['filter_autoprefixer']:
+        if self.config['filter_autoprefixer']:
             css_filters.append(get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
 
         b = Bundle(os.path.join(scss_path, 'styles.scss'),
@@ -202,19 +199,15 @@ class EnhancedApp(object):
                    output=os.path.join(css_path, 'styles.css'))
         env.register('styles-css', b)
 
-    def run_livereload(self, port=8080, debug=True):
+    def run_livereload(self, port=8080):
         """
         Create a live reload server
         :param additional_files:    list of file patterns, relative to the project's root
         :return:
         """
         server = livereload.Server(self.app)
-        for f in self._config['livereload_watch_files']:
-            if f.find('%(')>-1:
-                f = self._config['prefix'] + f % self._config
-            print abs_path(f)
-            server.watch(abs_path(f))
-        self.app.debug = debug
+        for f in self.config['livereload_watch_files']:
+            server.watch(abs_path(f % self.config))
         server.serve(port=port, host='0.0.0.0')
 
     def add_error_handlers(self):
@@ -245,4 +238,4 @@ class EnhancedApp(object):
             os.mkdir(path)
 
     def _to_static_path(self, *filenames):
-        return os.path.join(self._config['prefix'] + 'static', *filenames)
+        return os.path.join(self.config['prefix'] + 'static', *filenames)

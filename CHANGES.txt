@@ -1,5 +1,9 @@
 v0.1.5
 Fixed livereload not watching templates folder.
+Stopped removing generated existing css and js on reload
+Removed unnecessary parameter of debug mode for livereload.
+livereload should always run in debug mode
+Optimized how prefix is added for static and template folder
 v0.1.4
 Fixed webassets not refresh when files changed.
 Fixed livereload wrongly configured.
