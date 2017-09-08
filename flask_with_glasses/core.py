@@ -1,4 +1,5 @@
 import os
+import glob
 
 import livereload
 from flask import Flask, Config, Blueprint, render_template, request
@@ -50,6 +51,9 @@ default_config = {
     'EA_JS_LIBS': ['jquery/dist/jquery.min.js'],
     'EA_SCSS_LIBS': ['bootstrap/scss'],
 
+    'EA_JS_ASSETS':[{'name':'scripts-js','output':'scripts.js','pattern':'*.js'}]
+    'EA_CSS_ASSETS':[{'name':'styles-css','output':'styles.css','file':'styles.scss'}]
+
     'EA_FILTER_JSMIN': False,
     'EA_FILTER_AUTOPREFIXER': False,
     'EA_FILTER_BABEL': False,
@@ -66,19 +70,7 @@ class EnhancedApp(object):
     """
     Enhanced Flask App with additional jinja filters/function, webassets integration and livereload integration
     """
-
-    #: Flask app
-    app = None
-
-    #: webassets environment
-    assets_env = None
-
-    config = None
-
-    is_debug_mode = False
-
-    def __init__(self, app_name='enhanced-flask-app', config_file=None, debug_mode=False, **flask_kwargs):
-        self.is_debug_mode = debug_mode
+    def __init__(self, app_name='enhanced-flask-app', config_file=None, **flask_kwargs):
         config = Config('.', Flask.default_config)
         if config_file:
             config.from_object(config_file)
@@ -95,16 +87,12 @@ class EnhancedApp(object):
         flask_kwargs.setdefault('template_folder', self.config['prefix'] + 'templates')
 
         self.app = Flask(app_name, **flask_kwargs)
-
         self.app.config = config
-        self.add_error_handlers()
 
-        if debug_mode:
-            # Create webassets
-            self.assets_env = Environment(self.app)
-            self.assets_env.url_expire=True
-            self.assets_env.url='/static'
-            self.enhance_assets(self.assets_env)
+        # Create webassets
+        self.assets_env = Environment(self.app)
+        self.assets_env.url_expire=True
+        self.assets_env.url='/static'
 
         # Initialize additional jinja stuff
         self.enhance_jinja(self.app.jinja_env)
@@ -112,6 +100,18 @@ class EnhancedApp(object):
         # Add a blueprint to hook up default HTML template
         bp = Blueprint('enhanced-flask-app-bp', __name__, template_folder=utils.abs_path('templates', __file__))
         self.app.register_blueprint(bp)
+
+        # Flask assets related
+        self.scss_path = abs_path(self._to_static_path(self.config['scss_folder']))
+        self.css_path = abs_path(self._to_static_path(self.config['css_folder']))
+        self.js_src_path = abs_path(self._to_static_path(self.config['js_src_folder']))
+        self.js_path = abs_path(self._to_static_path(self.config['js_folder']))
+        self.bower_path = abs_path(self.config['bower_folder'])
+        self.js_filters=[]
+
+        self.css_filters=[]
+
+
 
     def create_folder_structure(self):
         for f in self.config['folder_structure']:
@@ -121,11 +121,7 @@ class EnhancedApp(object):
             self._create_path(_path)
 
     def enhance_jinja(self, env):
-        self.app.jinja_loader.searchpath.append(abs_path('templates', __file__))
-        # Add a parameter if jinja is in debug mode so the webassets will serve static files instead of compiling them
-        env.globals['debug_mode'] = self.is_debug_mode
-        # Turn on auto reload when developing in local machine
-        env.auto_reload = env.globals['debug_mode']
+        # self.app.jinja_loader.searchpath.append(abs_path('templates', __file__))
 
         # Add custom tags/blocks
         env.add_extension('jinja2_ext_required.RequiredVariablesExtension')
@@ -151,91 +147,89 @@ class EnhancedApp(object):
         :param env:     webassets environment
         :return:
         """
-
-        scss_path = abs_path(self._to_static_path(self.config['scss_folder']))
-        css_path = abs_path(self._to_static_path(self.config['css_folder']))
-        js_src_path = abs_path(self._to_static_path(self.config['js_src_folder']))
-        js_path = abs_path(self._to_static_path(self.config['js_folder']))
-        bower_path = abs_path(self.config['bower_folder'])
-
-        js_filters = []
         if self.config['filter_jsmin']:
-            js_filters = ['jsmin']
+            self.js_filters = ['jsmin']
 
         if self.config['filter_babel']:
-            js_filters.append(get_filter('babel', presets=self.config['babel_presets']))
-
-        libs = [os.path.join(bower_path, f) for f in self.config['js_libs']]
-        #: Project specific libs added in project config
-        if libs:
-            output_file = os.path.join(js_path, 'libs.js')
-            b = Bundle(libs, output=output_file, filters=js_filters)
-            env.register('libs-js', b)
-
-        scripts = []
-
-        for f in sorted(os.listdir(js_src_path), reverse=True):
-            if f.lower()[-2:] == 'js':
-                scripts.append(os.path.join(js_src_path, f))
-        if scripts:
-            output_file = os.path.join(js_path, 'scripts.js')
-            b = Bundle(scripts, output=output_file, filters=js_filters)
-            
-            env.register('scripts-js', b)
+            self.js_filters.append(get_filter('babel', presets=self.config['babel_presets']))
 
         include_scss = [scss_path]
         depends_scss = [os.path.join(scss_path, '*.scss')]
         for f in self.config['scss_libs']:
-            include_scss.append(os.path.join(bower_path, f))
-            depends_scss.append(os.path.join(bower_path, f, '*.scss'))
+            include_scss.append(os.path.join(self.bower_path, f))
+            depends_scss.append(os.path.join(self.bower_path, f, '*.scss'))
         sass_compiler = get_filter('libsass', includes=include_scss)
 
-        css_filters = [sass_compiler]
+        self.css_filters = [sass_compiler]
+
         if self.config['filter_autoprefixer']:
-            css_filters.append(get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
+            self.css_filters.append(get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
 
-        b = Bundle(os.path.join(scss_path, 'styles.scss'),
-                   filters=css_filters, depends=depends_scss,
-                   output=os.path.join(css_path, 'styles.css'))
-        env.register('styles-css', b)
+        libs = [os.path.join(self.bower_path, f) for f in self.config['js_libs']]
+        #: Project specific libs added in project config
+        if libs:
+            self.add_js_asset('libs.js',scripts=libs)
 
-    def run_livereload(self, port=8080):
-        """
+        for asset in self.config['js_assets']:
+            self.add_js_asset(asset['output_path',
+
+
+    def add_js_asset(name,output_file,input_file_pattern=None,scripts=[]):
+        if input_file_pattern:
+            scripts+=glob.glob(os.path.join(self.js_src_path,input_file_pattern))
+            sorted(scripts,reverse=True)
+        b = Bundle(libs, output=os.path.join(js_path,output_file), filters=self.js_filters)
+        self.assets_env.register(name, b)
+
+    def add_css_asset(output_file,input_file):
+       b = Bundle(os.path.join(scss_path, input_path),
+                       filters=self.css_filters, depends=self.depends_scss,
+                       output=os.path.join(css_path,output_path))
+       self.assets_env.register(output_file, b)
+
+
+            def run_livereload(self, port=8080):
+            """
         Create a live reload server
         :param additional_files:    list of file patterns, relative to the project's root
         :return:
         """
-        server = livereload.Server(self.app)
+        # Set app and jinja in debug mode
+        self.app.debug=True
+        self.app.jinja_env.globals['livereload']=True
+        self.app.jinja_env.auto_reload=True
+
+        server = livereload.Server(self.app.wsgi_app)
         for f in self.config['livereload_watch_files']:
-            server.watch(abs_path(f % self.config))
+        server.watch(abs_path(f % self.config))
         server.serve(port=port, host='0.0.0.0')
 
-    def add_error_handlers(self):
+        def add_error_handlers(self):
         @self.app.errorhandler(410)
         def content_gone(e):
-            return render_template('410.html', error=e), 410
+        return render_template('410.html', error=e), 410
 
         @self.app.errorhandler(403)
         def access_denied(e):
-            return render_template('403.html', error=e), 403
+        return render_template('403.html', error=e), 403
 
         @self.app.errorhandler(404)
         def content_not_found(e):
-            if request.path == '/favicon.ico':
-                return 'Not found', 404
-            return render_template('404.html', error=e), 404
+        if request.path == '/favicon.ico':
+        return 'Not found', 404
+        return render_template('404.html', error=e), 404
 
-    def _create_path(self, path):
+        def _create_path(self, path):
         if os.path.exists(path):
-            return
+        return
         parent = os.path.abspath(os.path.join(path, os.pardir))
         while not os.path.exists(parent):
-            self._create_path(parent)
+        self._create_path(parent)
         # Check if the path is a file
         if path.rfind('.') > path.rfind(os.path.sep):
-            open(path, 'w').close()
+        open(path, 'w').close()
         else:
-            os.mkdir(path)
+        os.mkdir(path)
 
-    def _to_static_path(self, *filenames):
+        def _to_static_path(self, *filenames):
         return os.path.join(self.config['prefix'] + 'static', *filenames)

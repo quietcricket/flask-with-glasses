@@ -1,14 +1,14 @@
 {%- macro include_assets(asset_name,url) -%}
-    {%- if debug_mode -%}
+    {%- if livereload -%}
         {%- assets asset_name -%}
-            {%- if url.lower()[-3:]=='css' -%}
+            {%- if url.lower().endswith('css') -%}
                 <link rel='stylesheet' href="{{ ASSET_URL }}" type='text/css' media='all'/>
             {%- else -%}
                 <script type="text/javascript" src="{{ ASSET_URL }}"></script>
             {%- endif -%}
         {%- endassets -%}
     {%- else -%}
-        {%- if url[-3:]=='css' -%}
+        {%- if url.lower().endswith('css') -%}
             <link rel='stylesheet' href="{{ url }}" type='text/css' media='all'/>
         {%- else -%}
             <script type="text/javascript" src="{{ url }}"></script>
