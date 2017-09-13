@@ -1,19 +1,17 @@
-{%- macro include_assets(asset_name,url) -%}
-    {%- if livereload -%}
-        {%- assets asset_name -%}
-            {%- if url.lower().endswith('css') -%}
-                <link rel='stylesheet' href="{{ ASSET_URL }}" type='text/css' media='all'/>
-            {%- else -%}
-                <script type="text/javascript" src="{{ ASSET_URL }}"></script>
-            {%- endif -%}
-        {%- endassets -%}
-    {%- else -%}
-        {%- if url.lower().endswith('css') -%}
-            <link rel='stylesheet' href="{{ url }}" type='text/css' media='all'/>
+{% if css_assets is undefined %}
+    {% set css_assets=['styles.css'] %}
+{% endif %}
+{% if js_assets is undefined %}
+    {% set js_assets=['libs.js','scripts.js'] %}
+{% endif %}
+{%- macro include_asset(filename,asset_type='css') -%}
+    {%- assets filename -%}
+        {%- if asset_type=='css'-%}
+            <link rel='stylesheet' href="{{ ASSET_URL }}" type='text/css' media='all'/>
         {%- else -%}
-            <script type="text/javascript" src="{{ url }}"></script>
+            <script type="text/javascript" src="{{ ASSET_URL }}"></script>
         {%- endif -%}
-    {%- endif -%}
+    {%- endassets -%}
 {%- endmacro -%}
 
 
@@ -29,7 +27,9 @@
             {% block favicon %}
             {% endblock favicon %}
             {% block styles %}
-                {{ include_assets('styles-css',url_for('static',filename='css/styles.css')) }}
+                {% for css in css_assets %}
+                    {{ include_asset(css) }}
+                {% endfor %}
             {% endblock styles %}
         {% endblock head %}
     </head>
@@ -51,8 +51,9 @@
             {% block ga %}{% endblock ga %}
 
             {% block default_scripts %}
-                {{ include_assets('libs-js',url_for('static',filename='js/libs.js')) }}
-                {{ include_assets('scripts-js',url_for('static',filename='js/scripts.js')) }}
+                {% for js in js_assets %}
+                    {{ include_asset(js,'js') }}
+                {% endfor %}
             {% endblock default_scripts %}
 
             {% block scripts %}

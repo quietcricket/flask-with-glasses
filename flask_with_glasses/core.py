@@ -13,9 +13,7 @@ from utils import abs_path
 default_config = {
     'EA_BOWER_FOLDER': 'bower_components',
     'EA_SCSS_FOLDER': 'scss',
-    'EA_CSS_FOLDER': 'css',
     'EA_JS_SRC_FOLDER': 'js_src',
-    'EA_JS_FOLDER': 'js',
     'EA_TEMPLATES_FOLDER': 'templates',
     #: Path prefix for static and template folder
     #: This is very useful place multiple apps within one folder
@@ -45,14 +43,14 @@ default_config = {
     'EA_JINJA_CONTEXT': {'highlight': 'highlight_link'},
 
     #: Project folder structure
-    'EA_FOLDER_STRUCTURE': ['%(prefix)sstatic/%(css_folder)s/', '%(prefix)sstatic/%(scss_folder)s/styles.scss',
-                            '%(prefix)sstatic/%(js_folder)s/', '%(prefix)sstatic/%(js_src_folder)s/Main.js',
+    'EA_FOLDER_STRUCTURE': ['%(prefix)sstatic/', '%(prefix)sstatic/%(scss_folder)s/styles.scss',
+                            '%(prefix)sstatic/', '%(prefix)sstatic/%(js_src_folder)s/Main.js',
                             '%(prefix)sstatic/images/', '%(prefix)sstatic/fonts/', '%(prefix)s%(templates_folder)s/'],
     'EA_JS_LIBS': ['jquery/dist/jquery.min.js'],
     'EA_SCSS_LIBS': ['bootstrap/scss'],
 
-    'EA_JS_ASSETS':[{'name':'scripts-js','output':'scripts.js','pattern':'*.js'}]
-    'EA_CSS_ASSETS':[{'name':'styles-css','output':'styles.css','file':'styles.scss'}]
+    'EA_JS_ASSETS': [{'output_file': 'scripts.js', 'input_file': '*.js'}],
+    'EA_CSS_ASSETS': [{'output_file': 'styles.css', 'input_file': 'styles.scss'}],
 
     'EA_FILTER_JSMIN': False,
     'EA_FILTER_AUTOPREFIXER': False,
@@ -70,6 +68,7 @@ class EnhancedApp(object):
     """
     Enhanced Flask App with additional jinja filters/function, webassets integration and livereload integration
     """
+
     def __init__(self, app_name='enhanced-flask-app', config_file=None, **flask_kwargs):
         config = Config('.', Flask.default_config)
         if config_file:
@@ -91,8 +90,9 @@ class EnhancedApp(object):
 
         # Create webassets
         self.assets_env = Environment(self.app)
-        self.assets_env.url_expire=True
-        self.assets_env.url='/static'
+        self.assets_env.url_expire = True
+        self.assets_env.url = '/static'
+        self.assets_env
 
         # Initialize additional jinja stuff
         self.enhance_jinja(self.app.jinja_env)
@@ -103,15 +103,18 @@ class EnhancedApp(object):
 
         # Flask assets related
         self.scss_path = abs_path(self._to_static_path(self.config['scss_folder']))
-        self.css_path = abs_path(self._to_static_path(self.config['css_folder']))
         self.js_src_path = abs_path(self._to_static_path(self.config['js_src_folder']))
-        self.js_path = abs_path(self._to_static_path(self.config['js_folder']))
         self.bower_path = abs_path(self.config['bower_folder'])
-        self.js_filters=[]
+        self.js_filters = []
+        self.css_filters = []
+        self.depends_scss = []
 
-        self.css_filters=[]
+        # Keep track of js, css bundles added in sequence
+        # esp important for js because of the dependencies
+        self.js_asset_names = []
+        self.css_asset_names = []
 
-
+        self.enhance_assets()
 
     def create_folder_structure(self):
         for f in self.config['folder_structure']:
@@ -141,7 +144,7 @@ class EnhancedApp(object):
                 obj[_k] = getattr(utils, _v)
             return obj
 
-    def enhance_assets(self, env):
+    def enhance_assets(self):
         """
         Add js, css/scss assets to the environment
         :param env:     webassets environment
@@ -153,83 +156,88 @@ class EnhancedApp(object):
         if self.config['filter_babel']:
             self.js_filters.append(get_filter('babel', presets=self.config['babel_presets']))
 
-        include_scss = [scss_path]
-        depends_scss = [os.path.join(scss_path, '*.scss')]
+        include_scss = [self.scss_path]
+        self.depends_scss = [os.path.join(self.scss_path, '*.scss')]
         for f in self.config['scss_libs']:
             include_scss.append(os.path.join(self.bower_path, f))
-            depends_scss.append(os.path.join(self.bower_path, f, '*.scss'))
+            self.depends_scss.append(os.path.join(self.bower_path, f, '*.scss'))
         sass_compiler = get_filter('libsass', includes=include_scss)
 
         self.css_filters = [sass_compiler]
 
         if self.config['filter_autoprefixer']:
-            self.css_filters.append(get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
+            self.css_filters.append(
+                get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
 
-        libs = [os.path.join(self.bower_path, f) for f in self.config['js_libs']]
         #: Project specific libs added in project config
+        libs = [os.path.join(self.bower_path, f) for f in self.config['js_libs']]
         if libs:
-            self.add_js_asset('libs.js',scripts=libs)
+            self.add_js_asset('libs.js', scripts=libs)
 
+        #: JS assets
         for asset in self.config['js_assets']:
-            self.add_js_asset(asset['output_path',
+            self.add_js_asset(asset['output_file'], asset['input_file'])
 
+        #: CSS assets
+        for asset in self.config['css_assets']:
+            self.add_css_asset(asset['output_file'], asset['input_file'])
 
-    def add_js_asset(name,output_file,input_file_pattern=None,scripts=[]):
+    def add_js_asset(self, output_file, input_file_pattern=None, scripts=[]):
         if input_file_pattern:
-            scripts+=glob.glob(os.path.join(self.js_src_path,input_file_pattern))
-            sorted(scripts,reverse=True)
-        b = Bundle(libs, output=os.path.join(js_path,output_file), filters=self.js_filters)
-        self.assets_env.register(name, b)
+            scripts += glob.glob(os.path.join(self.js_src_path, input_file_pattern))
+            sorted(scripts, reverse=True)
+        b = Bundle(scripts, output=self._to_static_path(output_file), filters=self.js_filters)
+        self.assets_env.register(output_file, b)
+        self.js_asset_names.append(output_file)
 
-    def add_css_asset(output_file,input_file):
-       b = Bundle(os.path.join(scss_path, input_path),
-                       filters=self.css_filters, depends=self.depends_scss,
-                       output=os.path.join(css_path,output_path))
-       self.assets_env.register(output_file, b)
+    def add_css_asset(self, output_file, input_file):
+        b = Bundle(os.path.join(self.scss_path, input_file),
+                   filters=self.css_filters, depends=self.depends_scss,
+                   output=self._to_static_path(output_file))
+        self.assets_env.register(output_file, b)
+        self.css_asset_names.append(output_file)
 
-
-            def run_livereload(self, port=8080):
-            """
+    def run_livereload(self, port=8080):
+        """
         Create a live reload server
         :param additional_files:    list of file patterns, relative to the project's root
         :return:
         """
         # Set app and jinja in debug mode
-        self.app.debug=True
-        self.app.jinja_env.globals['livereload']=True
-        self.app.jinja_env.auto_reload=True
-
+        self.app.debug = True
+        self.app.jinja_env.globals['livereload'] = True
+        self.app.jinja_env.auto_reload = True
         server = livereload.Server(self.app.wsgi_app)
         for f in self.config['livereload_watch_files']:
-        server.watch(abs_path(f % self.config))
+            server.watch(abs_path(f % self.config))
         server.serve(port=port, host='0.0.0.0')
 
-        def add_error_handlers(self):
+    def add_error_handlers(self):
         @self.app.errorhandler(410)
         def content_gone(e):
-        return render_template('410.html', error=e), 410
+            return render_template('410.html', error=e), 410
 
         @self.app.errorhandler(403)
         def access_denied(e):
-        return render_template('403.html', error=e), 403
+            return render_template('403.html', error=e), 403
 
         @self.app.errorhandler(404)
         def content_not_found(e):
-        if request.path == '/favicon.ico':
-        return 'Not found', 404
-        return render_template('404.html', error=e), 404
+            if request.path == '/favicon.ico':
+                return 'Not found', 404
+            return render_template('404.html', error=e), 404
 
-        def _create_path(self, path):
+    def _create_path(self, path):
         if os.path.exists(path):
-        return
+            return
         parent = os.path.abspath(os.path.join(path, os.pardir))
         while not os.path.exists(parent):
-        self._create_path(parent)
+            self._create_path(parent)
         # Check if the path is a file
         if path.rfind('.') > path.rfind(os.path.sep):
-        open(path, 'w').close()
+            open(path, 'w').close()
         else:
-        os.mkdir(path)
+            os.mkdir(path)
 
-        def _to_static_path(self, *filenames):
+    def _to_static_path(self, *filenames):
         return os.path.join(self.config['prefix'] + 'static', *filenames)
