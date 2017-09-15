@@ -4,7 +4,7 @@ print find_packages()
 setup(
     name='flask-with-glasses',
     version='0.1.5',
-    description='Enhanced flask app with livereload and webassets. More suitable for front end development',
+    description='Enhanced flask app with livereload and webassets, aiming to reduce setup on front end development',
     author='Shang Liang',
     author_email='shang@wewearglasses.com',
     url='https://github.com/wewearglasses/flask-with-glasses',
@@ -12,6 +12,6 @@ setup(
     packages=['flask_with_glasses'],
     zip_safe=False,
     include_package_data=True,
-    install_requires=['flask', 'flask-assets', 'livereload'],
+    install_requires=['flask', 'flask-assets', 'livereload','unicode-slugify'],
     classifiers=['Development Status :: 3 - Alpha'],
 )

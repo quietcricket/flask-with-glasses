@@ -1,13 +1,20 @@
+v0.2.0
+Changed how js,css assets are configured. Now you can have more than just 1 fixed scripts.js and styles.css
+Integrated unicode-slugify into gen_slug function to handle non-latin based languages like Chinese, Japanese etc.
+
 v0.1.5
 Fixed livereload not watching templates folder.
 Stopped removing generated existing css and js on reload
 Removed unnecessary parameter of debug mode for livereload.
 livereload should always run in debug mode
 Optimized how prefix is added for static and template folder
+
 v0.1.4
 Fixed webassets not refresh when files changed.
 Fixed livereload wrongly configured.
+
 v0.1.2
-Fixed missing installation file. 
+Fixed missing installation file.
+
 v0.1.1
 Fixed some errors. The v0.1.0 was not tested.

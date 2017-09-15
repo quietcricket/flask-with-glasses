@@ -7,8 +7,8 @@ import random
 import string
 import re
 from datetime import datetime
-import unicodedata
 
+from slugify import slugify
 from flask import request
 
 
@@ -53,7 +53,7 @@ def random_string(l=16):
     return ''.join(random.SystemRandom().choice(string.uppercase + string.lowercase + string.digits) for _ in xrange(l))
 
 
-def gen_slug(input_string, existing_slugs=[], replace_char='-'):
+def gen_slug(input_string, existing_slugs=[], delimiter='-'):
     """Generate a slug for given title
     If the title conflicts with existing another page title
     add -1, -2 etc to differentiate it
@@ -61,18 +61,15 @@ def gen_slug(input_string, existing_slugs=[], replace_char='-'):
     :param existing_slugs:      Exiting slugs
     :return:
     """
-    # remove accented letters
-
-    if type(input_string) == str:
-        input_string = unicode(input_string, 'utf-8')
-
-    # solve unicode characters, especially common for letters with accent
-    input_string = ''.join(c for c in unicodedata.normalize('NFD', input_string) if unicodedata.category(c) != 'Mn')
-    base = re.sub('([^a-zA-Z\d]|\s)+', replace_char, input_string).lower().strip(replace_char)
+    base = slugify(input_string, ok=delimiter, only_ascii=True)
+    # Some problem with the library, cannot handle japanese characters well
+    # End up having uppercase letters and spaces
+    if base.find(' ') > -1:
+        base = slugify(base, ok=delimiter)
     slug = base
     counter = 1
     while slug in existing_slugs:
-        slug = '%s-%i' % (base, counter)
+        slug = '%s%s%i' % (base, delimiter, counter)
         counter += 1
     return slug
 

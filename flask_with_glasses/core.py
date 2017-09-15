@@ -203,7 +203,6 @@ class EnhancedApp(object):
         :param additional_files:    list of file patterns, relative to the project's root
         :return:
         """
-        # Set app and jinja in debug mode
         self.app.debug = True
         self.app.jinja_env.globals['livereload'] = True
         self.app.jinja_env.auto_reload = True
@@ -240,4 +239,4 @@ class EnhancedApp(object):
             os.mkdir(path)
 
     def _to_static_path(self, *filenames):
-        return os.path.join(self.config['prefix'] + 'static', *filenames)
+        return os.path.join(abs_path(self.config['prefix'] + 'static'), *filenames)
