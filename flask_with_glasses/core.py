@@ -1,5 +1,6 @@
 import os
 import glob
+import collections
 
 import livereload
 from flask import Flask, Config, Blueprint, render_template, request
@@ -49,8 +50,8 @@ default_config = {
     'EA_JS_LIBS': ['jquery/dist/jquery.min.js'],
     'EA_SCSS_LIBS': ['bootstrap/scss'],
 
-    'EA_JS_ASSETS': [{'output_file': 'scripts.js', 'input_file': '*.js'}],
-    'EA_CSS_ASSETS': [{'output_file': 'styles.css', 'input_file': 'styles.scss'}],
+    'EA_JS_ASSETS': [('scripts.js', '*.js')],
+    'EA_CSS_ASSETS': ['styles.scss'],
 
     'EA_FILTER_JSMIN': False,
     'EA_FILTER_AUTOPREFIXER': False,
@@ -124,8 +125,6 @@ class EnhancedApp(object):
             self._create_path(_path)
 
     def enhance_jinja(self, env):
-        # self.app.jinja_loader.searchpath.append(abs_path('templates', __file__))
-
         # Add custom tags/blocks
         env.add_extension('jinja2_ext_required.RequiredVariablesExtension')
 
@@ -172,25 +171,29 @@ class EnhancedApp(object):
         #: Project specific libs added in project config
         libs = [os.path.join(self.bower_path, f) for f in self.config['js_libs']]
         if libs:
-            self.add_js_asset('libs.js', scripts=libs)
+            self.add_js_asset('libs.js', libs)
 
         #: JS assets
         for asset in self.config['js_assets']:
-            self.add_js_asset(asset['output_file'], asset['input_file'])
+            self.add_js_asset(asset[0], asset[1])
 
         #: CSS assets
         for asset in self.config['css_assets']:
-            self.add_css_asset(asset['output_file'], asset['input_file'])
+            self.add_css_asset(asset)
 
-    def add_js_asset(self, output_file, input_file_pattern=None, scripts=[]):
-        if input_file_pattern:
-            scripts += glob.glob(os.path.join(self.js_src_path, input_file_pattern))
+    def add_js_asset(self, output_file, input_files):
+        if isinstance(input_files, basestring):
+            scripts = glob.glob(os.path.join(self.js_src_path, input_files))
             sorted(scripts, reverse=True)
+        else:
+            scripts = input_files
         b = Bundle(scripts, output=self._to_static_path(output_file), filters=self.js_filters)
         self.assets_env.register(output_file, b)
         self.js_asset_names.append(output_file)
 
-    def add_css_asset(self, output_file, input_file):
+    def add_css_asset(self, base_file):
+        input_file = base_file + '.scss'
+        output_file = base_file + '.css'
         b = Bundle(os.path.join(self.scss_path, input_file),
                    filters=self.css_filters, depends=self.depends_scss,
                    output=self._to_static_path(output_file))
