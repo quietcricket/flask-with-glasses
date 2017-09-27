@@ -12,7 +12,7 @@ from utils import abs_path
 
 
 default_config = {
-    'EA_BOWER_FOLDER': 'bower_components',
+    'EA_NPM_FOLDER': 'node_modules',
     'EA_SCSS_FOLDER': 'scss',
     'EA_JS_SRC_FOLDER': 'js_src',
     'EA_TEMPLATES_FOLDER': 'templates',
@@ -105,7 +105,7 @@ class EnhancedApp(object):
         # Flask assets related
         self.scss_path = abs_path(self._to_static_path(self.config['scss_folder']))
         self.js_src_path = abs_path(self._to_static_path(self.config['js_src_folder']))
-        self.bower_path = abs_path(self.config['bower_folder'])
+        self.npm_path = abs_path(self.config['npm_folder'])
         self.js_filters = []
         self.css_filters = []
         self.depends_scss = []
@@ -158,8 +158,8 @@ class EnhancedApp(object):
         include_scss = [self.scss_path]
         self.depends_scss = [os.path.join(self.scss_path, '*.scss')]
         for f in self.config['scss_libs']:
-            include_scss.append(os.path.join(self.bower_path, f))
-            self.depends_scss.append(os.path.join(self.bower_path, f, '*.scss'))
+            include_scss.append(os.path.join(self.npm_path, f))
+            self.depends_scss.append(os.path.join(self.npm_path, f, '*.scss'))
         sass_compiler = get_filter('libsass', includes=include_scss)
 
         self.css_filters = [sass_compiler]
@@ -169,7 +169,7 @@ class EnhancedApp(object):
                 get_filter('autoprefixer', autoprefixer='autoprefixer-cli', browsers='last 2 version'))
 
         #: Project specific libs added in project config
-        libs = [os.path.join(self.bower_path, f) for f in self.config['js_libs']]
+        libs = [os.path.join(self.npm_path, f) for f in self.config['js_libs']]
         if libs:
             self.add_js_asset('libs.js', libs)
 
